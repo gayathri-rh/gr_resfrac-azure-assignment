@@ -1,0 +1,12 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: resfrac-assignment-secrets   
+  - name: terraformVersion
+    value: '1.14.2'
