@@ -1,0 +1,43 @@
+# ---- Secrets & environment ----
+.env
+.env.*
+*.pfx
+*.publishsettings
+local.settings.json
+*.pem
+*.key
+
+# ---- Node.js (api/) ----
+node_modules/
+npm-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# ---- Python (function/) ----
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# ---- Azure Functions ----
+bin/
+obj/
+.python_packages/
+
+# ---- Terraform (infra/) ----
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+crash.log
+
+# ---- OS/editor junk ----
+.DS_Store
+.vscode/
+.idea/
+*.swp
