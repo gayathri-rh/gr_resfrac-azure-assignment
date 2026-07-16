@@ -61,6 +61,13 @@ resource "azurerm_mssql_firewall_rule" "allow_azure_services" {
   end_ip_address   = "0.0.0.0"
 }
 
+resource "azurerm_mssql_firewall_rule" "allow_my_ip" {
+  name             = "AllowLocalDevIP"
+  server_id        = azurerm_mssql_server.sql.id
+  start_ip_address = "98.220.50.92"
+  end_ip_address   = "98.220.50.92"
+}
+
 resource "azurerm_log_analytics_workspace" "law" {
   name                = "law-${var.project_name}-${var.environment}"
   resource_group_name = azurerm_resource_group.main.name
