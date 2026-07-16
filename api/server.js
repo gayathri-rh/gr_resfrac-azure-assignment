@@ -1,4 +1,20 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
+// Load secrets from Azure Key Vault
+const { DefaultAzureCredential } = require('@azure/identity');
+const { SecretClient } = require('@azure/keyvault-secrets');
+const sql = require('mssql');
+
+let sqlPassword = null;
+
+async function loadSecrets() {
+  const credential = new DefaultAzureCredential();
+  const vaultUri = process.env.KEY_VAULT_URI;
+  const secretClient = new SecretClient(vaultUri, credential);
+
+  const secret = await secretClient.getSecret('sql-admin-password');
+  sqlPassword = secret.value;
+  console.log('SQL password loaded from Key Vault successfully');
+}
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
@@ -65,7 +81,43 @@ app.get('/protected', verifyToken, (req, res) => {
   });
 });
 
+//calling before server starts listening
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`API listening on port ${PORT}`);
+
+loadSecrets()
+  .then(() => connectSql())
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`API listening on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Startup failed:', err.message);
+    process.exit(1);
+  });
+
+  let pool = null;
+
+async function connectSql() {
+  const config = {
+    user: process.env.SQL_USER,
+    password: sqlPassword,
+    server: process.env.SQL_SERVER,
+    database: process.env.SQL_DATABASE,
+    options: {
+      encrypt: true
+    }
+  };
+
+  pool = await sql.connect(config);
+  console.log('Connected to Azure SQL successfully');
+}
+
+app.get('/data', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.request().query('SELECT GETDATE() AS server_time');
+    res.status(200).json({ data: result.recordset });
+  } catch (err) {
+    res.status(500).json({ error: 'Database query failed', details: err.message });
+  }
 });

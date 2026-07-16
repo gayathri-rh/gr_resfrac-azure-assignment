@@ -38,9 +38,9 @@ resource "azurerm_key_vault_secret" "sql_password" {
 }
 
 resource "azurerm_mssql_server" "sql" {
-  name                         = "sql-${var.project_name}-${var.environment}"
+  name                         = "sql-${var.project_name}-${var.environment}-1"
   resource_group_name          = azurerm_resource_group.main.name
-  location                     = azurerm_resource_group.main.location
+  location                     = "Central US"
   version                      = "12.0"
   administrator_login          = var.sql_admin_username
   administrator_login_password = var.sql_admin_password
@@ -112,7 +112,7 @@ resource "azurerm_linux_web_app" "api" {
 resource "azurerm_service_plan" "func_asp" {
   name                = "asp-func-${var.project_name}-${var.environment}"
   resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  location            = "Central US"
   os_type             = "Linux"
   sku_name            = "Y1"
 }
@@ -120,8 +120,7 @@ resource "azurerm_service_plan" "func_asp" {
 resource "azurerm_linux_function_app" "func" {
   name                = "func-${var.project_name}-${var.environment}"
   resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-
+  location            = "Central US"
   storage_account_name       = azurerm_storage_account.sa.name
   storage_account_access_key = azurerm_storage_account.sa.primary_access_key
   service_plan_id            = azurerm_service_plan.func_asp.id
