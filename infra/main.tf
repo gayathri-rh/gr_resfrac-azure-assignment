@@ -166,3 +166,11 @@ resource "azurerm_key_vault_access_policy" "func_access" {
 
   secret_permissions = ["Get", "List"]
 }
+
+resource "azurerm_key_vault_access_policy" "pipeline_access" {
+  key_vault_id = azurerm_key_vault.kv.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = "3b390e44-1076-430c-9e88-ec7d88c6330f"
+
+  secret_permissions = ["Get", "List"]
+}
