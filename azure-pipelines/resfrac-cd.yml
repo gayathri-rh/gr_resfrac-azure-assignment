@@ -92,44 +92,36 @@ stages:
     jobs:
       - deployment: DeployAPI
         displayName: 'Deploy Node.js API'
-        environment: 'resfrac-dev'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - download: ciPipeline
-                  artifact: api-drop
-                  displayName: 'Download API artifact from CI'
-
-                - task: AzureWebApp@1
-                  displayName: 'Deploy to App Service'
-                  inputs:
-                    azureSubscription: '$(serviceConnection)'
-                    appType: 'webAppLinux'
-                    appName: '$(apiWebAppName)'
-                    package: '$(Pipeline.Workspace)/ciPipeline/api-drop/api-artifact.zip'
-                    runtimeStack: 'NODE|20-lts'
-
-      - deployment: DeployFunction
+        steps:
+          - download: ciPipeline
+            artifact: api-drop
+            displayName: 'Download API artifact from CI'
+ 
+          - task: AzureWebApp@1
+            displayName: 'Deploy to App Service'
+            inputs:
+              azureSubscription: '$(serviceConnection)'
+              appType: 'webAppLinux'
+              appName: '$(apiWebAppName)'
+              package: '$(Pipeline.Workspace)/ciPipeline/api-drop/api-artifact.zip'
+              runtimeStack: 'NODE|20-lts'
+ 
+      - job: DeployFunction
         displayName: 'Deploy Python Function'
-        environment: 'resfrac-dev'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - download: ciPipeline
-                  artifact: function-drop
-                  displayName: 'Download Function artifact from CI'
-
-                - task: AzureFunctionApp@2
-                  displayName: 'Deploy to Function App'
-                  inputs:
-                    azureSubscription: '$(serviceConnection)'
-                    appType: 'functionAppLinux'
-                    appName: '$(functionAppName)'
-                    package: '$(Pipeline.Workspace)/ciPipeline/function-drop/function-artifact.zip'
-                    runtimeStack: 'PYTHON|3.11'
-
+        steps:
+          - download: ciPipeline
+            artifact: function-drop
+            displayName: 'Download Function artifact from CI'
+ 
+          - task: AzureFunctionApp@2
+            displayName: 'Deploy to Function App'
+            inputs:
+              azureSubscription: '$(serviceConnection)'
+              appType: 'functionAppLinux'
+              appName: '$(functionAppName)'
+              package: '$(Pipeline.Workspace)/ciPipeline/function-drop/function-artifact.zip'
+              runtimeStack: 'PYTHON|3.11'
+ 
   # ---------------------------------------------------------
   - stage: SmokeTest
     displayName: 'Smoke Test'
