@@ -7,6 +7,13 @@ terraform {
       version = "~> 3.90"
     }
   }
+
+   backend "azurerm" {
+    resource_group_name  = "rg-resfracassign-dev"
+    storage_account_name = "saresfracassigndev"
+    container_name        = "tfstate"
+    key                    = "resfrac.tfstate"
+  }
 }
 
 provider "azurerm" {
