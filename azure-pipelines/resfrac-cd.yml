@@ -13,7 +13,7 @@
 resources:
   pipelines:
     - pipeline: ciPipeline
-      source: 'resfrac-ci'          
+      source: 'resfrac-ci.yml'          
       trigger:
         branches:
           include:
