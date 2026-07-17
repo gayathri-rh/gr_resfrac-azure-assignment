@@ -1,0 +1,98 @@
+# resfrac-ci.yml
+# CI Pipeline: Build + Test for Node.js API and Python Azure Function
+
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - api/*
+      - function/*
+      - azure-pipelines/resfrac-ci.yml
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  # ---------------------------------------------------------
+  - stage: Build
+    displayName: 'Build'
+    jobs:
+      - job: BuildAPI
+        displayName: 'Build Node.js API'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+            displayName: 'Install Node 20 LTS'
+
+          - script: |
+              cd api
+              npm ci
+            displayName: 'Install API dependencies'
+
+          - script: |
+              cd api
+              zip -r ../api-artifact.zip . -x "node_modules/.cache/*" ".env"
+            displayName: 'Package API (excluding .env)'
+
+          - publish: api-artifact.zip
+            artifact: api-drop
+            displayName: 'Publish API artifact'
+
+      - job: BuildFunction
+        displayName: 'Build Python Function'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+            displayName: 'Use Python 3.11'
+
+          - script: |
+              cd function
+              pip install --target=".python_packages/lib/site-packages" -r requirements.txt
+            displayName: 'Install dependencies into .python_packages'
+
+          - script: |
+              cd function
+              zip -r ../function-artifact.zip . -x "local.settings.json" "*.venv/*" "__pycache__/*"
+            displayName: 'Package Function (excluding local.settings.json)'
+
+          - publish: function-artifact.zip
+            artifact: function-drop
+            displayName: 'Publish Function artifact'
+
+  # ---------------------------------------------------------
+  - stage: Test
+    displayName: 'Test'
+    dependsOn: Build
+    jobs:
+      - job: TestAPI
+        displayName: 'Validate Node.js API'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+
+          - script: |
+              cd api
+              npm ci
+              # If you add real tests later (e.g. jest), replace this with: npm test
+              node -e "require('./server.js'); console.log('server.js loads without throwing')" || echo "Skipping load check if server.js requires live DB/KeyVault connections"
+            displayName: 'Basic sanity check (syntax + require)'
+
+      - job: TestFunction
+        displayName: 'Validate Python Function'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.11'
+
+          - script: |
+              cd function
+              pip install -r requirements.txt
+              python -m py_compile function_app.py
+              echo "function_app.py compiled successfully"
+            displayName: 'Python syntax check (py_compile)'

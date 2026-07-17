@@ -1,0 +1,151 @@
+# resfrac-cd.yml
+# CD Pipeline: DeployInfra + DeployApps + SmokeTest
+# Auto-triggers after resfrac-ci.yml succeeds on main.
+
+# PREREQUISITES (one-time setup):
+# 1. Install the "Terraform" extension (Microsoft DevLabs) from the Azure DevOps Marketplace:
+#    https://marketplace.visualstudio.com/items?itemName=ms-devlabs.custom-terraform-tasks
+# 2. Create a blob container named "tfstate" in your saresfracassigndev storage account
+#    for Terraform remote state (az storage container create --name tfstate --account-name saresfracassigndev --auth-mode key)
+# 3. Confirm variable group "resfrac-assignment-secrets" contains: sqlAdminUsername, sqlAdminPassword (secret)
+# 4. Confirm service connection "resfrac-azure_connection" exists and is scoped to rg-resfracassign-dev
+
+resources:
+  pipelines:
+    - pipeline: ciPipeline
+      source: 'resfrac-ci'          
+      trigger:
+        branches:
+          include:
+            - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: resfrac-assignment-secrets
+  - name: resourceGroup
+    value: 'rg-resfracassign-dev'
+  - name: serviceConnection
+    value: 'resfrac-azure_connection'
+  - name: tfStateStorageAccount
+    value: 'saresfracassigndev'
+  - name: tfStateContainer
+    value: 'tfstate'
+  - name: tfStateKey
+    value: 'resfrac.tfstate'
+  - name: apiWebAppName
+    value: 'app-resfracassign-dev'
+  - name: functionAppName
+    value: 'func-resfracassign-dev'
+
+stages:
+  # ---------------------------------------------------------
+  - stage: DeployInfra
+    displayName: 'Deploy Infrastructure (Terraform)'
+    jobs:
+      - job: TerraformApply
+        displayName: 'Terraform Init & Apply'
+        steps:
+          - task: TerraformInstaller@1
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: '1.14.2'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+              backendServiceArm: '$(serviceConnection)'
+              backendAzureRmResourceGroupName: '$(resourceGroup)'
+              backendAzureRmStorageAccountName: '$(tfStateStorageAccount)'
+              backendAzureRmContainerName: '$(tfStateContainer)'
+              backendAzureRmKey: '$(tfStateKey)'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Plan'
+            inputs:
+              provider: 'azurerm'
+              command: 'plan'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+              environmentServiceNameAzureRM: '$(serviceConnection)'
+              commandOptions: '-var="sql_admin_username=$(sqlAdminUsername)" -var="sql_admin_password=$(sqlAdminPassword)" -out=tfplan'
+            # NOTE: -var names above (sql_admin_username / sql_admin_password) must match
+            # whatever variable names are actually declared in infra/variables.tf.
+            # Adjust to match your exact variable names before running.
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Apply'
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+              environmentServiceNameAzureRM: '$(serviceConnection)'
+              commandOptions: 'tfplan'
+
+  # ---------------------------------------------------------
+  - stage: DeployApps
+    displayName: 'Deploy API and Function'
+    dependsOn: DeployInfra
+    jobs:
+      - deployment: DeployAPI
+        displayName: 'Deploy Node.js API'
+        environment: 'resfrac-dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ciPipeline
+                  artifact: api-drop
+                  displayName: 'Download API artifact from CI'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to App Service'
+                  inputs:
+                    azureSubscription: '$(serviceConnection)'
+                    appType: 'webAppLinux'
+                    appName: '$(apiWebAppName)'
+                    package: '$(Pipeline.Workspace)/ciPipeline/api-drop/api-artifact.zip'
+                    runtimeStack: 'NODE|20-lts'
+
+      - deployment: DeployFunction
+        displayName: 'Deploy Python Function'
+        environment: 'resfrac-dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: ciPipeline
+                  artifact: function-drop
+                  displayName: 'Download Function artifact from CI'
+
+                - task: AzureFunctionApp@2
+                  displayName: 'Deploy to Function App'
+                  inputs:
+                    azureSubscription: '$(serviceConnection)'
+                    appType: 'functionAppLinux'
+                    appName: '$(functionAppName)'
+                    package: '$(Pipeline.Workspace)/ciPipeline/function-drop/function-artifact.zip'
+                    runtimeStack: 'PYTHON|3.11'
+
+  # ---------------------------------------------------------
+  - stage: SmokeTest
+    displayName: 'Smoke Test'
+    dependsOn: DeployApps
+    jobs:
+      - job: HealthCheck
+        displayName: 'Hit /health endpoint'
+        steps:
+          - script: |
+              URL="https://$(apiWebAppName).azurewebsites.net/health"
+              echo "Checking $URL"
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --retry 5 --retry-delay 10 --retry-connrefused "$URL")
+              echo "Received HTTP status: $STATUS"
+              if [ "$STATUS" -ne 200 ]; then
+                echo "Smoke test FAILED: expected 200, got $STATUS"
+                exit 1
+              fi
+              echo "Smoke test PASSED"
+            displayName: 'Curl /health and verify 200'
