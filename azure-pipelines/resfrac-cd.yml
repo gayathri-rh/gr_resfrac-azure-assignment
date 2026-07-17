@@ -1,7 +1,8 @@
 # resfrac-cd.yml
 # CD Pipeline: DeployInfra + DeployApps + SmokeTest
 # Auto-triggers after resfrac-ci.yml succeeds on main.
-
+# Place this file in: azure-pipelines/resfrac-cd.yml
+#
 # PREREQUISITES (one-time setup):
 # 1. Install the "Terraform" extension (Microsoft DevLabs) from the Azure DevOps Marketplace:
 #    https://marketplace.visualstudio.com/items?itemName=ms-devlabs.custom-terraform-tasks
@@ -13,7 +14,7 @@
 resources:
   pipelines:
     - pipeline: ciPipeline
-      source: 'resfrac_ci'          
+      source: 'resfrac_ci'          # <-- must match the exact display name of your CI pipeline in Azure DevOps
       trigger:
         branches:
           include:
@@ -90,13 +91,13 @@ stages:
     displayName: 'Deploy API and Function'
     dependsOn: DeployInfra
     jobs:
-      - deployment: DeployAPI
+      - job: DeployAPI
         displayName: 'Deploy Node.js API'
         steps:
           - download: ciPipeline
             artifact: api-drop
             displayName: 'Download API artifact from CI'
- 
+
           - task: AzureWebApp@1
             displayName: 'Deploy to App Service'
             inputs:
@@ -105,14 +106,14 @@ stages:
               appName: '$(apiWebAppName)'
               package: '$(Pipeline.Workspace)/ciPipeline/api-drop/api-artifact.zip'
               runtimeStack: 'NODE|20-lts'
- 
+
       - job: DeployFunction
         displayName: 'Deploy Python Function'
         steps:
           - download: ciPipeline
             artifact: function-drop
             displayName: 'Download Function artifact from CI'
- 
+
           - task: AzureFunctionApp@2
             displayName: 'Deploy to Function App'
             inputs:
@@ -121,7 +122,7 @@ stages:
               appName: '$(functionAppName)'
               package: '$(Pipeline.Workspace)/ciPipeline/function-drop/function-artifact.zip'
               runtimeStack: 'PYTHON|3.11'
- 
+
   # ---------------------------------------------------------
   - stage: SmokeTest
     displayName: 'Smoke Test'
