@@ -33,7 +33,7 @@ obj/
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
-.terraform.lock.hcl
+
 crash.log
 
 # ---- OS/editor junk ----
