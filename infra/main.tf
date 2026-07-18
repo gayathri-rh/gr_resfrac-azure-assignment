@@ -102,6 +102,7 @@ resource "azurerm_linux_web_app" "api" {
     application_stack {
       node_version = "20-lts"
     }
+    app_command_line = "node server.js"
   }
 
   app_settings = {
@@ -109,6 +110,9 @@ resource "azurerm_linux_web_app" "api" {
     "KEY_VAULT_URI"                          = azurerm_key_vault.kv.vault_uri
     "SQL_SERVER"                             = azurerm_mssql_server.sql.fully_qualified_domain_name
     "SQL_DATABASE"                           = azurerm_mssql_database.sqldb.name
+    "SQL_USER"                               = var.sql_admin_username
+    "SCM_DO_BUILD_DURING_DEPLOYMENT"         = "false"
+    "WEBSITE_RUN_FROM_PACKAGE"               = "1"
   }
 
   identity {
