@@ -148,6 +148,7 @@ resource "azurerm_linux_function_app" "func" {
     "KEY_VAULT_URI"                          = azurerm_key_vault.kv.vault_uri
     "UPLOADS_CONTAINER"                      = azurerm_storage_container.uploads.name
     "PROCESSED_CONTAINER"                    = azurerm_storage_container.processed.name
+     "BlobStorageConnectionString"           = azurerm_storage_account.sa.primary_connection_string
   }
 
   identity {
