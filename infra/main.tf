@@ -23,14 +23,6 @@ resource "azurerm_storage_container" "processed" {
   container_access_type = "private"
 }
 
-resource "azurerm_key_vault" "kv" {
-  name                = "kv-${var.project_name}-${var.environment}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  sku_name            = "standard"
-  tenant_id           = data.azurerm_client_config.current.tenant_id
-}
-
 resource "azurerm_key_vault_secret" "sql_password" {
   name         = "sql-admin-password"
   value        = var.sql_admin_password
@@ -156,26 +148,35 @@ resource "azurerm_linux_function_app" "func" {
   }
 }
 
-resource "azurerm_key_vault_access_policy" "api_access" {
-  key_vault_id = azurerm_key_vault.kv.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_linux_web_app.api.identity[0].principal_id
-
-  secret_permissions = ["Get", "List"]
+resource "azurerm_key_vault" "kv" {
+  name                       = "kv-${var.project_name}-${var.environment}"
+  location                   = azurerm_resource_group.main.location
+  resource_group_name        = azurerm_resource_group.main.name
+  sku_name                   = "standard"
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  enable_rbac_authorization  = true
 }
 
-resource "azurerm_key_vault_access_policy" "func_access" {
-  key_vault_id = azurerm_key_vault.kv.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_linux_function_app.func.identity[0].principal_id
-
-  secret_permissions = ["Get", "List"]
+resource "azurerm_role_assignment" "api_kv_secrets_user" {
+  scope                = azurerm_key_vault.kv.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_linux_web_app.api.identity[0].principal_id
 }
 
-resource "azurerm_key_vault_access_policy" "pipeline_access" {
-  key_vault_id = azurerm_key_vault.kv.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = "3b390e44-1076-430c-9e88-ec7d88c6330f"
+resource "azurerm_role_assignment" "func_kv_secrets_user" {
+  scope                = azurerm_key_vault.kv.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_linux_function_app.func.identity[0].principal_id
+}
 
-  secret_permissions = ["Get", "List"]
+resource "azurerm_role_assignment" "pipeline_kv_secrets_officer" {
+  scope                = azurerm_key_vault.kv.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = "3b390e44-1076-430c-9e88-ec7d88c6330f"
+}
+
+resource "azurerm_role_assignment" "user_kv_admin" {
+  scope                = azurerm_key_vault.kv.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = "5167feb5-68ca-4bfc-a9da-ceaccb3e5de6"
 }
