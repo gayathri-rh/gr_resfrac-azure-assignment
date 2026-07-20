@@ -13,7 +13,7 @@ npm-debug.log*
 yarn-error.log*
 dist/
 build/
-
+.azure/
 # ---- Python (function/) ----
 __pycache__/
 *.pyc
@@ -40,4 +40,3 @@ crash.log
 .DS_Store
 .vscode/
 .idea/
-*.swp
