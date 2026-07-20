@@ -79,7 +79,7 @@ resource "azurerm_application_insights" "appi" {
 resource "azurerm_service_plan" "asp" {
   name                = "asp-${var.project_name}-${var.environment}"
   resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  location            = "Central US"
   os_type             = "Linux"
   sku_name            = "B1"
 }
@@ -87,7 +87,7 @@ resource "azurerm_service_plan" "asp" {
 resource "azurerm_linux_web_app" "api" {
   name                = "app-${var.project_name}-${var.environment}"
   resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  location            = "Central US"
   service_plan_id     = azurerm_service_plan.asp.id
 
   site_config {
